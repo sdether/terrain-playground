@@ -5,6 +5,7 @@ export class Line {
      * @param {Line[]} lines
      */
     static findLines(lines) {
+        console.time('findLines')
 
         /**
          *
@@ -41,7 +42,9 @@ export class Line {
             return r(null, checked, acc);
         }
 
-        return r(null, lines, []);
+        lines = r(null, lines, []);
+        console.timeEnd('findLines')
+        return lines;
     }
 
     /**

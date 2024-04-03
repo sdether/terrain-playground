@@ -7,7 +7,7 @@ import {Line} from "./line.js";
  * @param {THREE.Plane} intersectPlane
  */
 export function getIntersectionPoints(mesh, intersectPlane) {
-
+    console.time('getIntersectionPoints')
     let pointOfIntersection = new THREE.Vector3();
 
     let a = new THREE.Vector3(),
@@ -53,6 +53,7 @@ export function getIntersectionPoints(mesh, intersectPlane) {
             lineSegments.push(new Line(bisectA, bisectB));
         }
     }
+    console.timeEnd('getIntersectionPoints')
     return Line.findLines(lineSegments);
 }
 

@@ -5,6 +5,7 @@ import Stats from "three/addons/libs/stats.module.js";
 import {SETTINGS} from "./settings.js";
 import {Contour} from "./contour.js";
 import {Vector3} from "three";
+import {TerraGen} from "./terraGen.js";
 
 
 export class Sandbox {
@@ -59,9 +60,10 @@ export class Sandbox {
             this.renderer.render(this.scene, camera);
         }.bind(this), false);
 
-        // this.terrain = new Terrain(this.scene, this.gui);
-        // this.terrain.generateGeometry();
-        this.contour = new Contour(this.scene, this.gui);
+        this.terrain = new TerraGen(this.scene, this.gui);
+        this.terrain.generateGeometry();
+        //this.contour = new Contour(this.scene, this.gui);
+
         // render loop
         let deltaTime = 0, lastTime = 0, elapsedTime = 0;
         this.renderer.setAnimationLoop(function (time) {
@@ -91,7 +93,14 @@ export class Sandbox {
         markerGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(9), 3));
         const marker = new THREE.Mesh(markerGeometry, markerMaterial);
         this.scene.add(marker);
-
+        let material = new THREE.LineBasicMaterial({
+            color: 'blue'
+        });
+        const lineGeometry = new THREE.BufferGeometry();
+        this.line = new THREE.Line(lineGeometry, material);
+        this.line.visible = false;
+        this.scene.add(this.line);
+        this.lineStart = null;
         window.addEventListener("pointermove", event => {
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
@@ -102,57 +111,48 @@ export class Sandbox {
             }
             raycaster.setFromCamera(mouse, camera);
 
-            const intersects = raycaster.intersectObject(this.contour.terrainMesh);
+            //const intersects = raycaster.intersectObject(this.contour.terrainMesh);
+            const intersects = raycaster.intersectObject(this.terrain.mesh);
             if (intersects.length > 0) {
 
                 const intersect = intersects[0];
-                if(intersect.faceIndex === currentFaceIdx) {
-                    return
+                if(this.lineStart) {
+                    this.lineStart = null;
+                    this.line.visible = false;
+                } else {
+                    this.lineStart = intersect.point;
                 }
-                currentFaceIdx = intersect.faceIndex;
-                let vA = new THREE.Vector3();
-                let vB = new THREE.Vector3();
-                let vC = new THREE.Vector3();
-
-                let face = intersect.face;
-                let geometry = intersect.object.geometry;
-                let position = geometry.attributes.position;
-                vA.fromBufferAttribute( position, face.a );
-                vB.fromBufferAttribute( position, face.b );
-                vC.fromBufferAttribute( position, face.c );
-                let vertices = new Float32Array([
-                    vA.x, vA.y, vA.z,
-                    vB.x, vB.y, vB.z,
-                    vC.x, vC.y, vC.z,
-                ]);
-                geometry = new THREE.BufferGeometry();
-                geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-                geometry.attributes.position.needsUpdate = true;
-                geometry.computeVertexNormals();
-                marker.geometry.dispose()
-                marker.geometry = geometry;
-                let mathPlane = new THREE.Plane();
-                let target = new THREE.Vector3();
-                mathPlane.setFromCoplanarPoints(
-                    new Vector3(-10,2,-10),
-                    new Vector3(10,2,-10),
-                    new Vector3(-10,2,10)
-                );
-                intersectLine(new THREE.Line3(vA, vB),mathPlane,target);
-                intersectLine(new THREE.Line3(vB, vC),mathPlane,target);
-                intersectLine(new THREE.Line3(vC, vA),mathPlane,target);
+                // if(intersect.faceIndex === currentFaceIdx) {
+                //     return
+                // }
+                // currentFaceIdx = intersect.faceIndex;
+                // let vA = new THREE.Vector3();
+                // let vB = new THREE.Vector3();
+                // let vC = new THREE.Vector3();
+                //
+                // let face = intersect.face;
+                // let geometry = intersect.object.geometry;
+                // let position = geometry.attributes.position;
+                // vA.fromBufferAttribute( position, face.a );
+                // vB.fromBufferAttribute( position, face.b );
+                // vC.fromBufferAttribute( position, face.c );
+                // let vertices = new Float32Array([
+                //     vA.x, vA.y, vA.z,
+                //     vB.x, vB.y, vB.z,
+                //     vC.x, vC.y, vC.z,
+                // ]);
+                // geometry = new THREE.BufferGeometry();
+                // geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+                // geometry.attributes.position.needsUpdate = true;
+                // geometry.computeVertexNormals();
+                // marker.geometry.dispose()
+                // marker.geometry = geometry;
             }
 
         });
     }
 }
 
-function intersectLine(line,plane, target) {
-    target = plane.intersectLine(line, target);
-    if (target) {
-        console.log(`line intersected`, line, target)
-    }
-}
 window.onload = () => {
     window.sandbox = new Sandbox();
 }

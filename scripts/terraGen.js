@@ -2,14 +2,20 @@ import * as THREE from "three";
 import * as dat from "three/addons/libs/lil-gui.module.min.js";
 import {ImprovedNoise} from "three/addons";
 import {SETTINGS} from "./settings.js";
-import {getIntersectionPoints, mulberry32} from "./utils.js";
+import {mulberry32} from "./utils.js";
+import {getIntersectionPoints} from "./intersection.js";
 
-export class Terrain {
+export class TerraGen {
 
     /**
      * @type {THREE.Group}
      */
-    #group;
+    #terrainGroup;
+
+    /**
+     * @type {THREE.Group}
+     */
+    #contourGroup;
 
     /**
      *
@@ -23,14 +29,9 @@ export class Terrain {
             side: THREE.DoubleSide,
         });
 
-        let uniforms = {
-            planeMousePos: {value: new THREE.Vector2()}
-        }
-
         let material = new THREE.MeshStandardMaterial({
             color: SETTINGS.groundColor,
             onBeforeCompile: shader => {
-                shader.uniforms.planeMousePos = uniforms.planeMousePos;
                 shader.vertexShader = `
     	varying vec3 vPos;
       ${shader.vertexShader}
@@ -43,32 +44,35 @@ export class Terrain {
                 //console.log(shader.vertexShader);
                 shader.fragmentShader = `
     	#define ss(a, b, c) smoothstep(a, b, c)
-    	uniform vec2 planeMousePos;
-      varying vec3 vPos;
+        varying vec3 vPos;
       ${shader.fragmentShader}
     `.replace(
                     `#include <dithering_fragment>`,
                     `#include <dithering_fragment>
       	vec3 col = vec3(0.5, 1, 1);
         float e = fwidth(vPos.y) * 2.;
-        float f = ss(e, 0., abs(vPos.y - planeMousePos.y));
-        gl_FragColor.rgb = mix(gl_FragColor.rgb, col, f);
-      
+        for(int i=1;i<10;i++) {
+          float f = ss(e, 0., abs(vPos.y - float(i)));
+          gl_FragColor.rgb = mix(gl_FragColor.rgb, col, f);
+        }
       `
                 );
                 //console.log(shader.fragmentShader);
             }
         });
 
-        this.#group = new THREE.Group();
+        this.#terrainGroup = new THREE.Group();
         const geometry = new THREE.BufferGeometry();
         this.mesh = new THREE.Mesh(geometry, material);
-        this.#group.add(this.mesh);
+        this.#terrainGroup.add(this.mesh);
         const wireframe_geometry = new THREE.BufferGeometry();
         const wireframe = new THREE.Mesh(wireframe_geometry, wireframe_material);
         wireframe.position.y = 0.001;
-        this.#group.add(wireframe);
-        scene.add(this.#group);
+        this.#terrainGroup.add(wireframe);
+        scene.add(this.#terrainGroup);
+
+        this.#contourGroup = new THREE.Group();
+        scene.add(this.#contourGroup);
 
         const gen = this.generateGeometry.bind(this);
         gui.add(SETTINGS, 'seed').name('Seed').onChange(gen);
@@ -115,6 +119,7 @@ export class Terrain {
         const perlin = new ImprovedNoise();
 
         let y = Math.random() * SETTINGS.height;
+        let maxHeight = 0;
 
         for (let z = 0; z < totalSegmentsZ; z++) {
             for (let x = 0; x < totalSegmentsX; x++) {
@@ -124,13 +129,12 @@ export class Terrain {
                     z / SETTINGS.spread,
                     y
                 ) * SETTINGS.height);
-                //console.log(`${x},${z},${height}`)
-                // this is where you would choose height based on the noise algorithm of your choice !
-                geometry.attributes.position.array[index + 1] = height;
-                if (SETTINGS.wireframe) {
-                    wireframe_geometry.attributes.position.array[index + 1] = height;
+                if (Math.floor(height) > maxHeight) {
+                    maxHeight = Math.floor(height);
                 }
-                //geometry.attributes.position.array[index + 1] = Math.random() * SETTINGS.height;
+
+                geometry.attributes.position.array[index + 1] = height;
+                wireframe_geometry.attributes.position.array[index + 1] = height;
             }
         }
 
@@ -143,24 +147,36 @@ export class Terrain {
         wireframe_geometry.computeVertexNormals();
         window.terrain = wireframe_geometry;
         // update group in scene with geometry
-        this.#group.children[0].geometry.dispose();
-        this.#group.children[1].geometry.dispose();
-        this.#group.children[0].geometry = geometry;
-        this.#group.children[1].geometry = wireframe_geometry;
+        this.#terrainGroup.children[0].geometry.dispose();
+        this.#terrainGroup.children[1].geometry.dispose();
+        this.#terrainGroup.children[0].geometry = geometry;
+        this.#terrainGroup.children[1].geometry = wireframe_geometry;
+        this.#terrainGroup.children[1].visible = SETTINGS.wireframe;
 
-        const cutMaterial = new THREE.MeshStandardMaterial({
-            color: 0xaaaaaa,
-            visible: false,
-            side: THREE.DoubleSide,
-        });
-        for(let i=1;i<10;i++) {
-            const cutGeometry = new THREE.PlaneGeometry(SETTINGS.size/10, SETTINGS.size/10);
-            cutGeometry.rotateX(Math.PI * -0.5);
-            const cutPlane = new THREE.Mesh(cutGeometry, cutMaterial);
-            cutPlane.position.y = i;
-            this.#group.add(getIntersectionPoints(this.mesh, cutPlane));
+        return;
+        // contour lines as geometry (disabled)
+        let ground = new THREE.Vector3();
+        this.#terrainGroup.children[0].localToWorld(ground);
+        this.#contourGroup.clear();
+        for (let i = 1; i <= maxHeight; i++) {
+
+            let contourPlane = new THREE.Plane();
+            let planePointA = new THREE.Vector3(ground.x, ground.y + i, ground.z),
+                planePointB = new THREE.Vector3(ground.x + 1, ground.y + i, ground.z),
+                planePointC = new THREE.Vector3(ground.x, ground.y + i, ground.z + 1);
+
+            contourPlane.setFromCoplanarPoints(planePointA, planePointB, planePointC);
+            let lines = getIntersectionPoints(this.#terrainGroup.children[0], contourPlane);
+            if (lines.length > 0) {
+                let material = new THREE.LineBasicMaterial({
+                    color: 0x008800
+                });
+                for (const line of lines) {
+                    const lineGeometry = new THREE.BufferGeometry().setFromPoints(line.vertices);
+                    this.#contourGroup.add(new THREE.Line(lineGeometry, material));
+                }
+            }
         }
-
     };
 
 }
