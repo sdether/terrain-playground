@@ -34,6 +34,7 @@ export class Contour {
             wireframe: true,
             side: THREE.DoubleSide,
         });
+
         this.terrainMesh = new THREE.Mesh(this.terrainGeometry, material);
         this.contourGroup.add(this.terrainMesh);
         this.wireframeMesh = new THREE.Mesh(this.wireframeGeometry, wireframeMaterial);

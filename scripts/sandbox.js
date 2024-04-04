@@ -6,6 +6,8 @@ import {SETTINGS} from "./settings.js";
 import {Contour} from "./contour.js";
 import {Vector3} from "three";
 import {TerraGen} from "./terraGen.js";
+import {Terrain} from "./terrain.js";
+import {Plane} from "./plane.js";
 
 
 export class Sandbox {
@@ -39,11 +41,15 @@ export class Sandbox {
         this.scene.add(ground_plane);
 
         const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 1, 1000);
-        camera.position.y = 40;
+        camera.position.y = 100;
         camera.position.z = 60;
 
         const controls = new OrbitControls(camera, this.renderer.domElement);
-        // controls.target.x = 0.75;
+        controls.enableDamping = true
+        controls.maxPolarAngle = Math.PI / 2.1
+        controls.maxDistance = 500
+        controls.minDistance = 1
+        controls.target.set(0, 0, 0)
 
         this.gui = new dat.GUI();
 
@@ -60,8 +66,10 @@ export class Sandbox {
             this.renderer.render(this.scene, camera);
         }.bind(this), false);
 
-        this.terrain = new TerraGen(this.scene, this.gui);
-        this.terrain.generateGeometry();
+        //this.terrain = new Plane(this.scene);
+         this.terrain = new Terrain(this.scene, this.gui);
+        // this.terrain = new TerraGen(this.scene, this.gui);
+        // this.terrain.generateGeometry();
         //this.contour = new Contour(this.scene, this.gui);
 
         // render loop

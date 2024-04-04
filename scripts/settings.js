@@ -1,5 +1,6 @@
 export const SETTINGS = {
     wireframe: false,
+    contours: false,
     size: 1000,
     spread: 15,
     segments: 100,
