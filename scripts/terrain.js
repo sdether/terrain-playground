@@ -26,47 +26,59 @@ export class Terrain {
         const settings = this.settings = {
             wireframe: false,
             contours: false,
-            heightScale: 0.4,
-            seaLevel: 3,
+            heightScale: 0.3,
+            seaLevel: 2.3,
+            selectionRadius: 1.0,
         };
         const geometry = new THREE.BufferGeometry();
-        this.simpleMaterial = new THREE.MeshPhysicalMaterial({
-            color: SETTINGS.groundColor,
-            wireframe: false,
-            side: THREE.DoubleSide,
-        });
-
-        this.contourMaterial = new THREE.MeshPhysicalMaterial({
+        let uniforms = this.uniforms = {
+            mousePos: {value: new THREE.Vector3()},
+            showContours: {value: settings.contours},
+            selectionRadius: {value: settings.selectionRadius},
+        };
+        this.material = new THREE.MeshPhysicalMaterial({
             color: SETTINGS.groundColor,
             onBeforeCompile: shader => {
+                shader.uniforms.mousePos = uniforms.mousePos;
+                shader.uniforms.showContours = uniforms.showContours;
+                shader.uniforms.r = uniforms.selectionRadius;
                 shader.vertexShader = `
     	varying vec3 vPos;
       ${shader.vertexShader}
-    `.replace(
-                    `#include <begin_vertex>`,
+`.replace(`#include <begin_vertex>`,
                     `#include <begin_vertex>
       	vPos = transformed;
-      `
-                );
-                //console.log(shader.vertexShader);
+`);
                 shader.fragmentShader = `
-    	#define ss(a, b, c) smoothstep(a, b, c)
+        uniform vec3 mousePos;
+        uniform bool showContours;
+        uniform float r;
         varying vec3 vPos;
       ${shader.fragmentShader}
-    `.replace(
+`.replace(
                     `#include <dithering_fragment>`,
                     `#include <dithering_fragment>
-      	vec3 col = vec3(0.5, 1, 1);
-        float e = fwidth(vPos.y) * 2.;
-        for(int i=1;i<100;i++) {
-          float f = ss(e, 0., abs(vPos.y - float(i)));
-          gl_FragColor.rgb = mix(gl_FragColor.rgb, col, f);
+        if( showContours ) {
+      	  vec3 col = vec3(0.5, 1, 1);
+          float e = fwidth(vPos.y) * 2.;
+          for(int i=1;i<100;i++) {
+            float f = smoothstep(e, 0., abs(vPos.y - float(i)));
+            gl_FragColor.rgb = mix(gl_FragColor.rgb, col, f);
+          }
         }
-      `
-                );
+        
+        // pointer
+        // shape
+        float dist = distance(mousePos.xz, vPos.xz);
+        
+        float shape = (smoothstep(r-0.1, r, dist)*0.75 + 0.25) - smoothstep(r, r + 0.1, dist);
+        
+        vec3 col = mix(gl_FragColor.rgb, vec3(0, 1, 0.25), shape);
+        gl_FragColor = vec4(col, gl_FragColor.a);
+`);
             }
         });
-        this.mesh = new THREE.Mesh(geometry, this.simpleMaterial)
+        this.mesh = new THREE.Mesh(geometry, this.material)
         this.mesh.position.y = settings.seaLevel;
         scene.add(this.mesh)
         const wireframe_material = new THREE.MeshPhysicalMaterial({
@@ -84,25 +96,25 @@ export class Terrain {
         gui.add(settings, 'heightScale', 0.1, 2, 0.1).name('Scale').onChange(gen);
         gui.add(settings, 'seaLevel', 0, 20).name('Sea Level').onChange(this.updateSeaLevel.bind(this));
         gui.add(settings, 'wireframe').name('Wireframe').onChange(gen);
-        gui.add(settings, 'contours').name('Contours').onChange( this.updateContours.bind(this));
+        gui.add(settings, 'contours').name('Contours').onChange(this.updateContours.bind(this));
+        gui.add(settings, 'contours').name('Contours').onChange(this.updateContours.bind(this));
+        gui.add(settings, 'selectionRadius', 0.25, 3, 0.25).name('Selection').onChange(this.updateSelectionRadius.bind(this));
         this.data = null;
 
         const textureLoader = new THREE.TextureLoader()
-        textureLoader.load('../assets/cabrillo.png', this.#loadTerrain.bind(this));
+        textureLoader.load('../assets/santa-barbara.png', this.#loadTerrain.bind(this));
     }
 
     updateSeaLevel() {
-            this.mesh.position.y = - this.settings.seaLevel;
-            this.wireframe.position.y = 0.001 - this.settings.seaLevel
-        }
+        this.mesh.position.y = -this.settings.seaLevel;
+        this.wireframe.position.y = 0.001 - this.settings.seaLevel
+    }
 
     updateContours() {
-        if (this.settings.contours) {
-            this.mesh.material = this.contourMaterial;
-        } else {
-            this.mesh.material = this.simpleMaterial;
-        }
-
+        this.uniforms.showContours.value = this.settings.contours;
+    }
+    updateSelectionRadius() {
+        this.uniforms.selectionRadius.value = this.settings.selectionRadius;
     }
 
     #loadTerrain(texture) {

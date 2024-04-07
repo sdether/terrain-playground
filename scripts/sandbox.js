@@ -22,7 +22,7 @@ export class Sandbox {
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(SETTINGS.skyColor)
 
-        this.scene.fog = new THREE.Fog( this.scene.background, 1, 2000 );
+        this.scene.fog = new THREE.Fog(this.scene.background, 1, 2000);
         const ambientLight = new THREE.AmbientLight(0x888888, 10);
         this.scene.add(ambientLight);
 
@@ -46,25 +46,25 @@ export class Sandbox {
 
         // SKYDOME
         const uniforms = {
-            'topColor': { value: new THREE.Color( SETTINGS.skyColor ) },
-            'bottomColor': { value: new THREE.Color( 0xffffff ) },
-            'offset': { value: 33 },
-            'exponent': { value: 0.9 }
+            'topColor': {value: new THREE.Color(SETTINGS.skyColor)},
+            'bottomColor': {value: new THREE.Color(0xffffff)},
+            'offset': {value: 33},
+            'exponent': {value: 0.9}
         };
         //uniforms[ 'topColor' ].value.copy( hemiLight.color );
 
-        this.scene.fog.color.copy( uniforms[ 'bottomColor' ].value );
+        this.scene.fog.color.copy(uniforms['bottomColor'].value);
 
-        const skyGeo = new THREE.SphereGeometry( 4000, 32, 15 );
-        const skyMat = new THREE.ShaderMaterial( {
+        const skyGeo = new THREE.SphereGeometry(4000, 32, 15);
+        const skyMat = new THREE.ShaderMaterial({
             uniforms: uniforms,
             vertexShader: skydomeVertexShader,
             fragmentShader: skydomeFragmentShader,
             side: THREE.BackSide
-        } );
+        });
 
-        const sky = new THREE.Mesh( skyGeo, skyMat );
-        this.scene.add( sky );
+        const sky = new THREE.Mesh(skyGeo, skyMat);
+        this.scene.add(sky);
 
         const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 1, 1000);
         camera.position.y = 200;
@@ -93,31 +93,14 @@ export class Sandbox {
         }.bind(this), false);
 
         //this.terrain = new Plane(this.scene);
-         this.terrain = new Terrain(this.scene, this.gui);
+        this.terrain = new Terrain(this.scene, this.gui);
         // this.terrain = new TerraGen(this.scene, this.gui);
         // this.terrain.generateGeometry();
         //this.contour = new Contour(this.scene, this.gui);
 
-        // render loop
-        let deltaTime = 0, lastTime = 0, elapsedTime = 0;
-        this.renderer.setAnimationLoop(function (time) {
-            deltaTime = time - lastTime;
-            lastTime = time;
-
-            //if (window.document.hasFocus()) {
-            elapsedTime += deltaTime;
-
-            controls.update();
-
-            this.renderer.render(this.scene, camera);
-            //}
-
-            stats.update();
-        }.bind(this));
-
         let mouse = new THREE.Vector3();
         let raycaster = new THREE.Raycaster();
-        let currentFaceIdx  = -1;
+        let currentFaceIdx = -1;
         const markerMaterial = new THREE.MeshPhysicalMaterial({
             color: 'blue',
             wireframe: false,
@@ -138,6 +121,13 @@ export class Sandbox {
         window.addEventListener("pointermove", event => {
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObject(this.terrain.mesh);
+            if (intersects.length > 0) {
+
+                const intersect = intersects[0];
+                this.terrain.uniforms.mousePos.value = intersect.point;
+            }
         });
         window.addEventListener('mousedown', event => {
             if (event.button !== 0) {
@@ -150,7 +140,7 @@ export class Sandbox {
             if (intersects.length > 0) {
 
                 const intersect = intersects[0];
-                if(this.lineStart) {
+                if (this.lineStart) {
                     this.lineStart = null;
                     this.line.visible = false;
                 } else {
@@ -184,6 +174,29 @@ export class Sandbox {
             }
 
         });
+
+
+        // render loop
+        let lastMouse = mouse;
+        this.renderer.setAnimationLoop(function (time) {
+            controls.update();
+            if(lastMouse !== mouse) {
+
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObject(this.terrain.mesh);
+                if (intersects.length > 0) {
+
+                    const intersect = intersects[0];
+                    this.terrain.uniforms.mousePos.value = intersect.point;
+                }
+                lastMouse = mouse;
+            }
+            this.renderer.render(this.scene, camera);
+
+
+            stats.update();
+        }.bind(this));
+
     }
 }
 
