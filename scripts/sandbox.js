@@ -8,7 +8,8 @@ import {Vector3} from "three";
 import {TerraGen} from "./terraGen.js";
 import {Terrain} from "./terrain.js";
 import {Plane} from "./plane.js";
-
+import skydomeVertexShader from "../shaders/skydome-vertex.glsl"
+import skydomeFragmentShader from "../shaders/skydome-fragment.glsl"
 
 export class Sandbox {
     constructor() {
@@ -19,7 +20,9 @@ export class Sandbox {
         document.body.appendChild(this.renderer.domElement);
 
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0xccccff)
+        this.scene.background = new THREE.Color(SETTINGS.skyColor)
+
+        this.scene.fog = new THREE.Fog( this.scene.background, 1, 2000 );
         const ambientLight = new THREE.AmbientLight(0x888888, 10);
         this.scene.add(ambientLight);
 
@@ -29,10 +32,11 @@ export class Sandbox {
         directionalLight.position.z = 15;
         this.scene.add(directionalLight);
 
+        // SEA-LEVEL
         const ground_geometry = new THREE.PlaneGeometry(100000, 100000);
         ground_geometry.rotateX(Math.PI * -0.5);
         const ground_material = new THREE.MeshPhysicalMaterial({
-            color: SETTINGS.groundColor,
+            color: SETTINGS.waterColor,
             wireframe: false,
             side: THREE.DoubleSide,
         });
@@ -40,9 +44,31 @@ export class Sandbox {
         ground_plane.position.y = 0;
         this.scene.add(ground_plane);
 
+        // SKYDOME
+        const uniforms = {
+            'topColor': { value: new THREE.Color( SETTINGS.skyColor ) },
+            'bottomColor': { value: new THREE.Color( 0xffffff ) },
+            'offset': { value: 33 },
+            'exponent': { value: 0.9 }
+        };
+        //uniforms[ 'topColor' ].value.copy( hemiLight.color );
+
+        this.scene.fog.color.copy( uniforms[ 'bottomColor' ].value );
+
+        const skyGeo = new THREE.SphereGeometry( 4000, 32, 15 );
+        const skyMat = new THREE.ShaderMaterial( {
+            uniforms: uniforms,
+            vertexShader: skydomeVertexShader,
+            fragmentShader: skydomeFragmentShader,
+            side: THREE.BackSide
+        } );
+
+        const sky = new THREE.Mesh( skyGeo, skyMat );
+        this.scene.add( sky );
+
         const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 1, 1000);
-        camera.position.y = 100;
-        camera.position.z = 60;
+        camera.position.y = 200;
+        camera.position.z = 300;
 
         const controls = new OrbitControls(camera, this.renderer.domElement);
         controls.enableDamping = true

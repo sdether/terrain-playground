@@ -26,7 +26,8 @@ export class Terrain {
         const settings = this.settings = {
             wireframe: false,
             contours: false,
-            heightScale: 0.5
+            heightScale: 0.4,
+            seaLevel: 3,
         };
         const geometry = new THREE.BufferGeometry();
         this.simpleMaterial = new THREE.MeshPhysicalMaterial({
@@ -66,6 +67,7 @@ export class Terrain {
             }
         });
         this.mesh = new THREE.Mesh(geometry, this.simpleMaterial)
+        this.mesh.position.y = settings.seaLevel;
         scene.add(this.mesh)
         const wireframe_material = new THREE.MeshPhysicalMaterial({
             color: 0x008800,
@@ -74,20 +76,25 @@ export class Terrain {
         });
         const wireframe_geometry = new THREE.BufferGeometry();
         this.wireframe = new THREE.Mesh(wireframe_geometry, wireframe_material);
-        this.wireframe.position.y = 0.001;
+        this.wireframe.position.y = 0.001 - settings.seaLevel;
         this.wireframe.visible = false;
         scene.add(this.wireframe);
 
         const gen = this.generateGeometry.bind(this);
-        const updateContours = this.updateContours.bind(this);
         gui.add(settings, 'heightScale', 0.1, 2, 0.1).name('Scale').onChange(gen);
+        gui.add(settings, 'seaLevel', 0, 20).name('Sea Level').onChange(this.updateSeaLevel.bind(this));
         gui.add(settings, 'wireframe').name('Wireframe').onChange(gen);
-        gui.add(settings, 'contours').name('Contours').onChange(updateContours);
+        gui.add(settings, 'contours').name('Contours').onChange( this.updateContours.bind(this));
         this.data = null;
 
         const textureLoader = new THREE.TextureLoader()
         textureLoader.load('../assets/cabrillo.png', this.#loadTerrain.bind(this));
     }
+
+    updateSeaLevel() {
+            this.mesh.position.y = - this.settings.seaLevel;
+            this.wireframe.position.y = 0.001 - this.settings.seaLevel
+        }
 
     updateContours() {
         if (this.settings.contours) {
@@ -183,6 +190,7 @@ export class Terrain {
         } else {
             this.wireframe.visible = false;
         }
+        this.updateSeaLevel();
         console.timeEnd("generateGeometry")
     }
 }

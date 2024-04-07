@@ -6,5 +6,7 @@ export const SETTINGS = {
     segments: 100,
     height: 15,
     seed: 1234,
-    groundColor: 0x00cc00,
+    groundColor: 0x44cc44,
+    waterColor: 0xaaaaff,
+    skyColor: 0xccccff
 };
