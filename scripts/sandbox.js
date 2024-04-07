@@ -92,7 +92,7 @@ export class Sandbox {
             this.renderer.render(this.scene, camera);
         }.bind(this), false);
 
-        //this.terrain = new Plane(this.scene);
+        //this.terrain = new Plane(this.scene, this.gui);
         this.terrain = new Terrain(this.scene, this.gui);
         // this.terrain = new TerraGen(this.scene, this.gui);
         // this.terrain.generateGeometry();
@@ -121,25 +121,23 @@ export class Sandbox {
         window.addEventListener("pointermove", event => {
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-            raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObject(this.terrain.mesh);
-            if (intersects.length > 0) {
-
-                const intersect = intersects[0];
-                this.terrain.uniforms.mousePos.value = intersect.point;
-            }
+            // TODO: raycasting needs to be function on terrain that can determine which chunk to look at
+            // const intersects = this.terrain.intersect(mouse, camera)
+            // if (intersects.length > 0) {
+            //
+            //     const intersect = intersects[0];
+            //     this.terrain.uniforms.mousePos.value = intersect.point;
+            // }
         });
         window.addEventListener('mousedown', event => {
             if (event.button !== 0) {
                 return
             }
-            raycaster.setFromCamera(mouse, camera);
-
-            //const intersects = raycaster.intersectObject(this.contour.terrainMesh);
-            const intersects = raycaster.intersectObject(this.terrain.mesh);
+            const intersects = this.terrain.intersect(mouse, camera)
             if (intersects.length > 0) {
 
                 const intersect = intersects[0];
+                console.log(intersect.point);
                 if (this.lineStart) {
                     this.lineStart = null;
                     this.line.visible = false;
@@ -177,23 +175,16 @@ export class Sandbox {
 
 
         // render loop
-        let lastMouse = mouse;
         this.renderer.setAnimationLoop(function (time) {
             controls.update();
-            if(lastMouse !== mouse) {
 
-                raycaster.setFromCamera(mouse, camera);
-                const intersects = raycaster.intersectObject(this.terrain.mesh);
-                if (intersects.length > 0) {
-
-                    const intersect = intersects[0];
-                    this.terrain.uniforms.mousePos.value = intersect.point;
-                }
-                lastMouse = mouse;
-            }
             this.renderer.render(this.scene, camera);
+            const intersects = this.terrain.intersect(mouse, camera)
+            if (intersects.length > 0) {
 
-
+                const intersect = intersects[0];
+                this.terrain.uniforms.mousePos.value = intersect.point;
+            }
             stats.update();
         }.bind(this));
 
